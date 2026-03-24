@@ -83,10 +83,12 @@ function openLogModal(stdoutFile, stderrFile) {
   const modal = document.getElementById("log-modal");
   modal.classList.remove("hidden");
   fetchAndShowLog();
+  startLogAutoRefresh();
 }
 
 function closeLogModal() {
   document.getElementById("log-modal").classList.add("hidden");
+  stopLogAutoRefresh();
 }
 
 async function fetchAndShowLog() {
@@ -105,8 +107,11 @@ async function fetchAndShowLog() {
     type,
     stdoutFile: modalState.stdoutFile,
     stderrFile: modalState.stderrFile,
+    _t: String(Date.now()),
   });
   try {
+    const atBottomBeforeUpdate =
+      contentNode.scrollTop + contentNode.clientHeight >= contentNode.scrollHeight - 8;
     const res = await fetch(`/api/logs?${query.toString()}`);
     const data = await res.json();
     if (!res.ok || !data.ok) {
@@ -114,9 +119,27 @@ async function fetchAndShowLog() {
       return;
     }
     contentNode.textContent = data.content || "(empty)";
+    if (atBottomBeforeUpdate) {
+      contentNode.scrollTop = contentNode.scrollHeight;
+    }
   } catch (_err) {
     contentNode.textContent = "读取日志失败，请稍后重试";
   }
+}
+
+let logRefreshTimer = null;
+
+function startLogAutoRefresh() {
+  stopLogAutoRefresh();
+  logRefreshTimer = setInterval(() => {
+    fetchAndShowLog().catch(() => {});
+  }, 1000);
+}
+
+function stopLogAutoRefresh() {
+  if (!logRefreshTimer) return;
+  clearInterval(logRefreshTimer);
+  logRefreshTimer = null;
 }
 
 function bindLogActions() {

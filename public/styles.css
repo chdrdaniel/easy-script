@@ -275,6 +275,11 @@ td {
   color: #b4ffce;
 }
 
+.status.running {
+  background: rgba(255, 203, 87, 0.18);
+  color: #ffe7a8;
+}
+
 .status.failed,
 .status.spawn_error {
   background: rgba(255, 78, 127, 0.15);

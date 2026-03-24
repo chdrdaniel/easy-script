@@ -168,17 +168,36 @@ async function bootstrap() {
   });
 
   app.get("/api/history", requireAuth, async (_req, res) => {
+    res.set("Cache-Control", "no-store");
     const history = await readHistory(100);
     res.json({ ok: true, history });
   });
 
   app.get("/api/history/:scriptId", requireAuth, async (req, res) => {
+    res.set("Cache-Control", "no-store");
     const script = findScriptById(config, req.params.scriptId);
     if (!script) {
       return res.status(404).json({ ok: false, message: "Script not found" });
     }
     const history = await readHistory(300);
     const filtered = history.filter((item) => item.scriptId === script.id).slice(0, 100);
+    const runningJob = runningJobs.get(script.id);
+    if (runningJob) {
+      const runningRecord = {
+        runId: runningJob.runId,
+        scriptId: runningJob.scriptId,
+        scriptName: runningJob.scriptName,
+        startTime: runningJob.startTime,
+        endTime: null,
+        durationMs: Date.now() - runningJob.startedAtMs,
+        status: "running",
+        exitCode: null,
+        signal: null,
+        stdoutFile: runningJob.stdoutFile,
+        stderrFile: runningJob.stderrFile,
+      };
+      return res.json({ ok: true, history: [runningRecord, ...filtered] });
+    }
     return res.json({ ok: true, history: filtered });
   });
 
@@ -193,6 +212,7 @@ async function bootstrap() {
   });
 
   app.get("/api/logs", requireAuth, async (req, res) => {
+    res.set("Cache-Control", "no-store");
     const type = String(req.query.type || "stdout");
     const relativePath =
       type === "stderr" ? String(req.query.stderrFile || "") : String(req.query.stdoutFile || "");
@@ -260,6 +280,9 @@ async function bootstrap() {
         scriptId: script.id,
         scriptName: script.name,
         startTime,
+        startedAtMs,
+        stdoutFile,
+        stderrFile,
       });
 
       shellProc.on("close", async (code, signal) => {
