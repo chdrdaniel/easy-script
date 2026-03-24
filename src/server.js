@@ -12,6 +12,22 @@ const CONFIG_PATH = path.join(ROOT_DIR, "config", "app.config.json");
 const HISTORY_PATH = path.join(ROOT_DIR, "data", "run-history.jsonl");
 const LOGS_DIR = path.join(ROOT_DIR, "logs");
 
+function pickShell(config) {
+  if (config.shell && typeof config.shell === "string") {
+    return config.shell;
+  }
+  if (process.env.SCRIPT_CONSOLE_SHELL) {
+    return process.env.SCRIPT_CONSOLE_SHELL;
+  }
+  if (fs.existsSync("/bin/zsh")) {
+    return "/bin/zsh";
+  }
+  if (fs.existsSync("/bin/bash")) {
+    return "/bin/bash";
+  }
+  return "/bin/sh";
+}
+
 function loadConfig() {
   if (!fs.existsSync(CONFIG_PATH)) {
     throw new Error(
@@ -97,6 +113,7 @@ function requireAuth(req, res, next) {
 async function bootstrap() {
   const config = loadConfig();
   await ensureRuntimeFiles();
+  const shellPath = pickShell(config);
 
   const app = express();
   const runningJobs = new Map();
@@ -214,12 +231,24 @@ async function bootstrap() {
     const fullStderrPath = path.join(ROOT_DIR, stderrFile);
     const startedAtMs = Date.now();
     const cwd = script.cwd ? path.resolve(ROOT_DIR, script.cwd) : ROOT_DIR;
+    const shellArgs = shellPath.endsWith("zsh") || shellPath.endsWith("bash")
+      ? ["-lc", script.command]
+      : ["-c", script.command];
+    let historyWritten = false;
+
+    const appendHistoryOnce = async (record) => {
+      if (historyWritten) {
+        return;
+      }
+      historyWritten = true;
+      await appendHistory(record);
+    };
 
     let shellProc;
     try {
       const outStream = fs.createWriteStream(fullStdoutPath, { flags: "a" });
       const errStream = fs.createWriteStream(fullStderrPath, { flags: "a" });
-      shellProc = spawn("/bin/zsh", ["-lc", script.command], {
+      shellProc = spawn(shellPath, shellArgs, {
         cwd,
         env: process.env,
       });
@@ -238,11 +267,12 @@ async function bootstrap() {
         const durationMs = Date.now() - startedAtMs;
         runningJobs.delete(script.id);
         const status = code === 0 ? "success" : "failed";
-        await appendHistory({
+        await appendHistoryOnce({
           runId,
           scriptId: script.id,
           scriptName: script.name,
           command: script.command,
+          shell: shellPath,
           cwd,
           startTime,
           endTime,
@@ -258,11 +288,17 @@ async function bootstrap() {
       shellProc.on("error", async (err) => {
         const endTime = new Date().toISOString();
         runningJobs.delete(script.id);
-        await appendHistory({
+        try {
+          await fsp.appendFile(fullStderrPath, `${err.message}\n`, "utf8");
+        } catch {
+          // Ignore best-effort stderr write.
+        }
+        await appendHistoryOnce({
           runId,
           scriptId: script.id,
           scriptName: script.name,
           command: script.command,
+          shell: shellPath,
           cwd,
           startTime,
           endTime,

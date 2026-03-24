@@ -34,6 +34,7 @@ Update `config/app.config.json`:
 - `adminPassword`: login password
 - `sessionSecret`: long random secret for sessions
 - `port`: optional, defaults to `3000`
+- `shell`: optional shell path (for example `/bin/bash`)
 - `scripts`: allowed scripts (`id`, `name`, `command`, `cwd`)
 
 ### 3. Run
@@ -65,6 +66,7 @@ Example schema:
   "port": 3000,
   "sessionSecret": "replace-with-a-long-random-secret",
   "adminPassword": "ChangeMe123!",
+  "shell": "/bin/bash",
   "scripts": [
     {
       "id": "deploy-example",
@@ -79,7 +81,8 @@ Example schema:
 Notes:
 
 - `id` must be unique.
-- Script runs via `/bin/zsh -lc "<command>"`.
+- Script runs via `shell -lc "<command>"` for `zsh/bash`, or `shell -c "<command>"` for others.
+- Shell resolution order: `config.shell` -> `SCRIPT_CONSOLE_SHELL` -> `/bin/zsh` -> `/bin/bash` -> `/bin/sh`.
 - `cwd` is resolved relative to project root.
 
 ## API
