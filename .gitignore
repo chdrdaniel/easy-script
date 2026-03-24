@@ -4,3 +4,4 @@ node_modules
 logs/*.log
 data/run-history.jsonl
 config/app.config.json
+*.swp
