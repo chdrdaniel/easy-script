@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="author" content="yuanxun.mei@gmail.com" />
+    <title>Script Console - Login</title>
+    <link rel="stylesheet" href="/public/styles.css" />
+  </head>
+  <body class="login-body">
+    <div class="bg-grid"></div>
+    <main class="login-wrap">
+      <section class="glass-panel login-card">
+        <p class="kicker">LOCAL EXECUTION GATE</p>
+        <h1>Script Console</h1>
+        <p class="subtitle">认证后可执行本机预定义 Shell 脚本</p>
+
+        <% if (error) { %>
+        <div class="error-box"><%= error %></div>
+        <% } %>
+
+        <form method="post" action="/login">
+          <label for="password">管理员密码</label>
+          <input id="password" type="password" name="password" required autofocus />
+          <button type="submit">进入控制台</button>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

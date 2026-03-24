@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="author" content="yuanxun.mei@gmail.com" />
+    <title>Script Console</title>
+    <link rel="stylesheet" href="/public/styles.css" />
+  </head>
+  <body>
+    <div class="bg-grid"></div>
+    <header class="topbar">
+      <div>
+        <p class="kicker">CONTROL CENTER</p>
+        <h1>本机脚本执行控制台</h1>
+      </div>
+      <form method="post" action="/logout">
+        <button class="ghost-btn" type="submit">退出登录</button>
+      </form>
+    </header>
+
+    <main class="dashboard">
+      <section class="glass-panel stat-row">
+        <div class="stat">
+          <p>已配置脚本</p>
+          <h2><%= scripts.length %></h2>
+        </div>
+        <div class="stat">
+          <p>当前运行</p>
+          <h2 id="running-count"><%= runningCount %></h2>
+        </div>
+        <div class="stat">
+          <p>历史记录</p>
+          <h2>查看详情页</h2>
+        </div>
+      </section>
+
+      <section class="glass-panel">
+        <h3>脚本卡片（每行 6 个）</h3>
+        <div class="script-grid six-col">
+          <% scripts.forEach((script) => { %>
+          <a class="script-card card-link" href="/script/<%= script.id %>">
+            <p class="script-id"><%= script.id %></p>
+            <h4><%= script.name %></h4>
+            <code><%= script.command %></code>
+            <span class="enter-link">进入详情</span>
+          </a>
+          <% }) %>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast"></div>
+    <script src="/public/dashboard.js"></script>
+  </body>
+</html>

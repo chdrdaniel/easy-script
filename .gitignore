@@ -1,0 +1,6 @@
+# Author: yuanxun.mei@gmail.com
+node_modules
+.DS_Store
+logs/*.log
+data/run-history.jsonl
+config/app.config.json

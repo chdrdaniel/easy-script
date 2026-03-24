@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="author" content="yuanxun.mei@gmail.com" />
+    <title>Script Detail - <%= script.name %></title>
+    <link rel="stylesheet" href="/public/styles.css" />
+  </head>
+  <body>
+    <div class="bg-grid"></div>
+    <header class="topbar">
+      <div>
+        <p class="kicker">SCRIPT DETAIL</p>
+        <h1><%= script.name %></h1>
+      </div>
+      <div class="detail-actions">
+        <a class="ghost-btn back-link" href="/">返回卡片页</a>
+        <form method="post" action="/logout">
+          <button class="ghost-btn" type="submit">退出登录</button>
+        </form>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <section class="glass-panel">
+        <p class="script-id"><%= script.id %></p>
+        <code class="detail-command"><%= script.command %></code>
+        <button id="run-script-btn" class="run-btn detail-run-btn" type="button" data-script-id="<%= script.id %>">
+          运行
+        </button>
+      </section>
+
+      <section class="glass-panel">
+        <h3>运行记录（最新在最上）</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>状态</th>
+                <th>耗时</th>
+                <th>退出码</th>
+                <th>日志</th>
+              </tr>
+            </thead>
+            <tbody id="history-body">
+              <% history.forEach((item) => { %>
+              <tr>
+                <td><%= item.startTime %></td>
+                <td><span class="status <%= item.status %>"><%= item.status %></span></td>
+                <td><%= typeof item.durationMs === "number" ? `${item.durationMs} ms` : "-" %></td>
+                <td><%= item.exitCode ?? "-" %></td>
+                <td class="mono">
+                  out: <%= item.stdoutFile || "-" %><br />
+                  err: <%= item.stderrFile || "-" %><br />
+                  <button
+                    class="log-btn"
+                    type="button"
+                    data-stdout-file="<%= item.stdoutFile || '' %>"
+                    data-stderr-file="<%= item.stderrFile || '' %>"
+                  >
+                    查看日志
+                  </button>
+                </td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast"></div>
+    <div id="log-modal" class="log-modal hidden" role="dialog" aria-modal="true" aria-label="日志查看">
+      <div class="log-modal-mask"></div>
+      <section class="log-modal-panel glass-panel">
+        <header class="log-modal-head">
+          <h3>运行日志</h3>
+          <button id="close-log-modal" type="button" class="ghost-btn">关闭</button>
+        </header>
+        <div class="log-tabs">
+          <button id="stdout-tab" type="button" class="tab-btn active">stdout</button>
+          <button id="stderr-tab" type="button" class="tab-btn">stderr</button>
+        </div>
+        <p id="log-file" class="mono log-file"></p>
+        <pre id="log-content" class="log-content mono"></pre>
+      </section>
+    </div>
+    <script>
+      window.__SCRIPT_ID__ = "<%- script.id %>";
+    </script>
+    <script src="/public/script-detail.js"></script>
+  </body>
+</html>

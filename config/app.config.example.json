@@ -1,0 +1,20 @@
+{
+  "author": "yuanxun.mei@gmail.com",
+  "port": 3000,
+  "sessionSecret": "replace-this-with-a-long-random-secret",
+  "adminPassword": "ChangeMe123!",
+  "scripts": [
+    {
+      "id": "health-check",
+      "name": "服务健康检查",
+      "command": "echo \"[health] $(date)\" && uptime",
+      "cwd": "."
+    },
+    {
+      "id": "deploy-example",
+      "name": "示例部署脚本",
+      "command": "./scripts/deploy-example.sh",
+      "cwd": "."
+    }
+  ]
+}

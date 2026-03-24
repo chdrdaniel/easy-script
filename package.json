@@ -1,0 +1,23 @@
+{
+  "name": "auto-deploy",
+  "version": "1.0.0",
+  "description": "Local shell script runner with auth, logs, and PM2 deployment",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "NODE_ENV=development node src/server.js"
+  },
+  "keywords": [
+    "deploy",
+    "shell",
+    "pm2",
+    "dashboard"
+  ],
+  "author": "yuanxun.mei@gmail.com",
+  "license": "ISC",
+  "dependencies": {
+    "ejs": "^5.0.1",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0"
+  }
+}
