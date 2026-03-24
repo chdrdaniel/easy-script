@@ -34,9 +34,19 @@ async function refreshHistory() {
   const res = await fetch(`/api/history/${encodeURIComponent(scriptId)}`);
   const data = await res.json();
   if (!data.ok) return;
+  runningLogFiles.clear();
+  for (const item of data.history) {
+    if (item.status === "running") {
+      if (item.stdoutFile) runningLogFiles.add(item.stdoutFile);
+      if (item.stderrFile) runningLogFiles.add(item.stderrFile);
+    }
+  }
   const tbody = document.getElementById("history-body");
   tbody.innerHTML = data.history.map(renderHistoryRow).join("");
   bindLogActions();
+  if (isLogModalOpen()) {
+    updateLogAutoRefreshState();
+  }
 }
 
 async function runScript(scriptId, button) {
@@ -68,6 +78,8 @@ const modalState = {
   activeType: "stdout",
 };
 
+const runningLogFiles = new Set();
+
 function setLogTab(type) {
   modalState.activeType = type;
   const stdoutTab = document.getElementById("stdout-tab");
@@ -83,12 +95,16 @@ function openLogModal(stdoutFile, stderrFile) {
   const modal = document.getElementById("log-modal");
   modal.classList.remove("hidden");
   fetchAndShowLog();
-  startLogAutoRefresh();
+  updateLogAutoRefreshState();
 }
 
 function closeLogModal() {
   document.getElementById("log-modal").classList.add("hidden");
   stopLogAutoRefresh();
+}
+
+function isLogModalOpen() {
+  return !document.getElementById("log-modal").classList.contains("hidden");
 }
 
 async function fetchAndShowLog() {
@@ -142,6 +158,16 @@ function stopLogAutoRefresh() {
   logRefreshTimer = null;
 }
 
+function updateLogAutoRefreshState() {
+  const shouldAutoRefresh =
+    runningLogFiles.has(modalState.stdoutFile) || runningLogFiles.has(modalState.stderrFile);
+  if (shouldAutoRefresh) {
+    startLogAutoRefresh();
+    return;
+  }
+  stopLogAutoRefresh();
+}
+
 function bindLogActions() {
   const logButtons = document.querySelectorAll(".log-btn");
   logButtons.forEach((button) => {
@@ -167,6 +193,7 @@ runButton.onclick = () => runScript(runButton.dataset.scriptId, runButton);
 
 bindLogActions();
 bindModalActions();
+refreshHistory().catch(() => {});
 setInterval(() => {
   refreshHistory().catch(() => {});
 }, 4000);
