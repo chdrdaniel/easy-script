@@ -55,6 +55,63 @@ function loadConfig() {
   return cfg;
 }
 
+function toSafePositiveInt(value, fallback) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) {
+    return fallback;
+  }
+  return Math.floor(num);
+}
+
+function resolveLoginSecurity(config) {
+  const cfg = config.loginSecurity || {};
+  return {
+    maxAttempts: toSafePositiveInt(cfg.maxAttempts, 5),
+    windowMs: toSafePositiveInt(cfg.windowMs, 10 * 60 * 1000),
+    lockoutMs: toSafePositiveInt(cfg.lockoutMs, 15 * 60 * 1000),
+  };
+}
+
+function pickTrustProxy(config) {
+  if (typeof config.trustProxy === "number") {
+    return config.trustProxy;
+  }
+  if (typeof config.trustProxy === "boolean") {
+    return config.trustProxy;
+  }
+  return false;
+}
+
+function shouldUseSecureCookie(config) {
+  if (typeof config.secureCookie === "boolean") {
+    return config.secureCookie;
+  }
+  return process.env.NODE_ENV === "production";
+}
+
+function getClientIp(req) {
+  const header = req.headers["x-forwarded-for"];
+  if (typeof header === "string" && header.trim()) {
+    return header.split(",")[0].trim();
+  }
+  if (Array.isArray(header) && header.length > 0) {
+    return String(header[0]).split(",")[0].trim();
+  }
+  return req.ip || req.socket?.remoteAddress || "unknown";
+}
+
+function cleanupLoginAttempts(store, now, lockoutMs) {
+  for (const [ip, state] of store.entries()) {
+    const recentAttempts = (state.attempts || []).filter((ts) => now - ts <= lockoutMs);
+    const stillLocked = Number(state.lockedUntil || 0) > now;
+    if (!stillLocked && recentAttempts.length === 0) {
+      store.delete(ip);
+      continue;
+    }
+    store.set(ip, { attempts: recentAttempts, lockedUntil: Number(state.lockedUntil || 0) });
+  }
+}
+
 async function ensureRuntimeFiles() {
   await fsp.mkdir(path.dirname(HISTORY_PATH), { recursive: true });
   await fsp.mkdir(LOGS_DIR, { recursive: true });
@@ -114,12 +171,17 @@ async function bootstrap() {
   const config = loadConfig();
   await ensureRuntimeFiles();
   const shellPath = pickShell(config);
+  const loginSecurity = resolveLoginSecurity(config);
+  const secureCookie = shouldUseSecureCookie(config);
+  const trustProxy = pickTrustProxy(config);
 
   const app = express();
   const runningJobs = new Map();
+  const loginAttempts = new Map();
 
   app.set("view engine", "ejs");
   app.set("views", path.join(ROOT_DIR, "views"));
+  app.set("trust proxy", trustProxy);
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));
@@ -131,7 +193,7 @@ async function bootstrap() {
       cookie: {
         httpOnly: true,
         sameSite: "lax",
-        secure: false,
+        secure: secureCookie,
         maxAge: 12 * 60 * 60 * 1000,
       },
     })
@@ -146,10 +208,32 @@ async function bootstrap() {
   });
 
   app.post("/login", (req, res) => {
+    const now = Date.now();
+    cleanupLoginAttempts(loginAttempts, now, loginSecurity.lockoutMs);
+    const clientIp = getClientIp(req);
+    const current = loginAttempts.get(clientIp) || { attempts: [], lockedUntil: 0 };
+    current.attempts = current.attempts.filter((ts) => now - ts <= loginSecurity.windowMs);
+
+    if (current.lockedUntil > now) {
+      const remainSec = Math.ceil((current.lockedUntil - now) / 1000);
+      loginAttempts.set(clientIp, current);
+      return res
+        .status(429)
+        .render("login", { error: `登录失败次数过多，请 ${remainSec} 秒后再试。` });
+    }
+
     const password = String(req.body.password || "");
     if (password !== config.adminPassword) {
+      current.attempts.push(now);
+      if (current.attempts.length >= loginSecurity.maxAttempts) {
+        current.lockedUntil = now + loginSecurity.lockoutMs;
+        current.attempts = [];
+      }
+      loginAttempts.set(clientIp, current);
       return res.status(401).render("login", { error: "密码错误，请重试。" });
     }
+
+    loginAttempts.delete(clientIp);
     req.session.isAuthenticated = true;
     return res.redirect("/");
   });

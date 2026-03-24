@@ -3,6 +3,13 @@
   "port": 3000,
   "sessionSecret": "replace-this-with-a-long-random-secret",
   "adminPassword": "ChangeMe123!",
+  "secureCookie": false,
+  "trustProxy": false,
+  "loginSecurity": {
+    "maxAttempts": 5,
+    "windowMs": 600000,
+    "lockoutMs": 900000
+  },
   "shell": "/bin/bash",
   "scripts": [
     {
