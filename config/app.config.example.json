@@ -2,7 +2,7 @@
   "author": "yuanxun.mei@gmail.com",
   "port": 3000,
   "sessionSecret": "replace-this-with-a-long-random-secret",
-  "adminPassword": "ChangeMe123!",
+  "adminPassword": "123456",
   "secureCookie": false,
   "trustProxy": false,
   "loginSecurity": {

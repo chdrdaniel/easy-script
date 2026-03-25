@@ -217,12 +217,15 @@ async function bootstrap() {
     if (current.lockedUntil > now) {
       const remainSec = Math.ceil((current.lockedUntil - now) / 1000);
       loginAttempts.set(clientIp, current);
+      console.log(`[LOGIN] IP ${clientIp} is locked, remain ${remainSec}s`);
       return res
         .status(429)
         .render("login", { error: `登录失败次数过多，请 ${remainSec} 秒后再试。` });
     }
 
     const password = String(req.body.password || "");
+    console.log(`[LOGIN] IP ${clientIp} attempting login, password length: ${password.length}, config password length: ${config.adminPassword.length}`);
+    
     if (password !== config.adminPassword) {
       current.attempts.push(now);
       if (current.attempts.length >= loginSecurity.maxAttempts) {
@@ -230,12 +233,21 @@ async function bootstrap() {
         current.attempts = [];
       }
       loginAttempts.set(clientIp, current);
+      console.log(`[LOGIN] IP ${clientIp} password mismatch, attempts: ${current.attempts.length}`);
       return res.status(401).render("login", { error: "密码错误，请重试。" });
     }
 
     loginAttempts.delete(clientIp);
     req.session.isAuthenticated = true;
-    return res.redirect("/");
+    console.log(`[LOGIN] IP ${clientIp} login success, session: ${JSON.stringify(req.session)}`);
+    req.session.save((err) => {
+      if (err) {
+        console.error(`[LOGIN] Session save error: ${err.message}`);
+        return res.status(500).render("login", { error: `登录失败：${err.message}` });
+      }
+      console.log(`[LOGIN] Session saved, redirecting to /`);
+      return res.redirect("/");
+    });
   });
 
   app.post("/logout", (req, res) => {
