@@ -13,6 +13,7 @@
       <div>
         <p class="kicker">CONTROL CENTER</p>
         <h1>本机脚本执行控制台</h1>
+        <p class="subtitle">当前登录 IP：<span class="mono"><%= loginIp %></span></p>
       </div>
       <form method="post" action="/logout">
         <button class="ghost-btn" type="submit">退出登录</button>
@@ -36,7 +37,10 @@
       </section>
 
       <section class="glass-panel">
-        <h3>脚本卡片（每行 6 个）</h3>
+        <div class="section-head">
+          <h3>脚本卡片（每行 6 个）</h3>
+          <button id="refresh-dashboard-btn" type="button" class="ghost-btn">手动刷新</button>
+        </div>
         <div class="script-grid six-col">
           <% scripts.forEach((script) => { %>
           <a class="script-card card-link" href="/script/<%= script.id %>">
@@ -50,6 +54,10 @@
     </main>
 
     <div id="toast"></div>
+    <div id="loading-overlay" class="loading-overlay hidden" role="status" aria-live="polite" aria-busy="true">
+      <div class="loading-spinner" aria-hidden="true"></div>
+      <p>刷新中...</p>
+    </div>
     <script src="/public/dashboard.js"></script>
   </body>
 </html>

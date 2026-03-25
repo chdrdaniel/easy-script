@@ -7,6 +7,49 @@ function toast(message) {
   window.__toastTimer = setTimeout(() => node.classList.remove("visible"), 2200);
 }
 
+const loadingOverlay = document.getElementById("loading-overlay");
+let loadingOverlayCount = 0;
+
+function setLoadingOverlay(loading) {
+  if (!loadingOverlay) return;
+  if (loading) {
+    loadingOverlayCount += 1;
+    loadingOverlay.classList.remove("hidden");
+    return;
+  }
+  loadingOverlayCount = Math.max(0, loadingOverlayCount - 1);
+  if (loadingOverlayCount === 0) {
+    loadingOverlay.classList.add("hidden");
+  }
+}
+
+async function withLoadingOverlay(task) {
+  setLoadingOverlay(true);
+  try {
+    return await task();
+  } finally {
+    setLoadingOverlay(false);
+  }
+}
+
+function setButtonLoading(button, loading, loadingText) {
+  if (!button) return;
+  if (!button.dataset.label) {
+    button.dataset.label = button.textContent.trim();
+  }
+  if (!loading) {
+    button.disabled = false;
+    button.classList.remove("btn-loading");
+    button.textContent = button.dataset.label;
+    button.removeAttribute("aria-busy");
+    return;
+  }
+  button.disabled = true;
+  button.classList.add("btn-loading");
+  button.setAttribute("aria-busy", "true");
+  button.textContent = loadingText || button.dataset.label;
+}
+
 function renderStatus(status) {
   return `<span class="status ${status}">${status}</span>`;
 }
@@ -34,19 +77,9 @@ async function refreshHistory() {
   const res = await fetch(`/api/history/${encodeURIComponent(scriptId)}`);
   const data = await res.json();
   if (!data.ok) return;
-  runningLogFiles.clear();
-  for (const item of data.history) {
-    if (item.status === "running") {
-      if (item.stdoutFile) runningLogFiles.add(item.stdoutFile);
-      if (item.stderrFile) runningLogFiles.add(item.stderrFile);
-    }
-  }
   const tbody = document.getElementById("history-body");
   tbody.innerHTML = data.history.map(renderHistoryRow).join("");
   bindLogActions();
-  if (isLogModalOpen()) {
-    updateLogAutoRefreshState();
-  }
 }
 
 async function runScript(scriptId, button) {
@@ -60,10 +93,7 @@ async function runScript(scriptId, button) {
       toast(data.message || "启动失败");
       return;
     }
-    toast("脚本已启动");
-    setTimeout(() => {
-      refreshHistory().catch(() => {});
-    }, 1200);
+    toast("脚本已启动，请手动刷新列表查看状态");
   } catch (_err) {
     toast("请求失败，请检查服务日志");
   } finally {
@@ -77,8 +107,6 @@ const modalState = {
   stderrFile: "",
   activeType: "stdout",
 };
-
-const runningLogFiles = new Set();
 
 function setLogTab(type) {
   modalState.activeType = type;
@@ -95,16 +123,10 @@ function openLogModal(stdoutFile, stderrFile) {
   const modal = document.getElementById("log-modal");
   modal.classList.remove("hidden");
   fetchAndShowLog();
-  updateLogAutoRefreshState();
 }
 
 function closeLogModal() {
   document.getElementById("log-modal").classList.add("hidden");
-  stopLogAutoRefresh();
-}
-
-function isLogModalOpen() {
-  return !document.getElementById("log-modal").classList.contains("hidden");
 }
 
 async function fetchAndShowLog() {
@@ -143,31 +165,6 @@ async function fetchAndShowLog() {
   }
 }
 
-let logRefreshTimer = null;
-
-function startLogAutoRefresh() {
-  stopLogAutoRefresh();
-  logRefreshTimer = setInterval(() => {
-    fetchAndShowLog().catch(() => {});
-  }, 1000);
-}
-
-function stopLogAutoRefresh() {
-  if (!logRefreshTimer) return;
-  clearInterval(logRefreshTimer);
-  logRefreshTimer = null;
-}
-
-function updateLogAutoRefreshState() {
-  const shouldAutoRefresh =
-    runningLogFiles.has(modalState.stdoutFile) || runningLogFiles.has(modalState.stderrFile);
-  if (shouldAutoRefresh) {
-    startLogAutoRefresh();
-    return;
-  }
-  stopLogAutoRefresh();
-}
-
 function bindLogActions() {
   const logButtons = document.querySelectorAll(".log-btn");
   logButtons.forEach((button) => {
@@ -186,6 +183,28 @@ function bindModalActions() {
     setLogTab("stderr");
     await fetchAndShowLog();
   };
+  const refreshLogBtn = document.getElementById("refresh-log-btn");
+  refreshLogBtn.onclick = async () => {
+    setButtonLoading(refreshLogBtn, true, "刷新中...");
+    try {
+      await withLoadingOverlay(() => fetchAndShowLog());
+    } finally {
+      setButtonLoading(refreshLogBtn, false);
+    }
+  };
+}
+
+function bindPageActions() {
+  const refreshHistoryBtn = document.getElementById("refresh-history-btn");
+  refreshHistoryBtn.onclick = async () => {
+    setButtonLoading(refreshHistoryBtn, true, "刷新中...");
+    try {
+      await withLoadingOverlay(() => refreshHistory());
+      toast("列表已刷新");
+    } finally {
+      setButtonLoading(refreshHistoryBtn, false);
+    }
+  };
 }
 
 const runButton = document.getElementById("run-script-btn");
@@ -193,7 +212,5 @@ runButton.onclick = () => runScript(runButton.dataset.scriptId, runButton);
 
 bindLogActions();
 bindModalActions();
+bindPageActions();
 refreshHistory().catch(() => {});
-setInterval(() => {
-  refreshHistory().catch(() => {});
-}, 4000);

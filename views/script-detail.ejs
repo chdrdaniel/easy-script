@@ -32,7 +32,10 @@
       </section>
 
       <section class="glass-panel">
-        <h3>运行记录（最新在最上）</h3>
+        <div class="section-head">
+          <h3>运行记录（最新在最上）</h3>
+          <button id="refresh-history-btn" type="button" class="ghost-btn">刷新列表</button>
+        </div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -77,7 +80,10 @@
       <section class="log-modal-panel glass-panel">
         <header class="log-modal-head">
           <h3>运行日志</h3>
-          <button id="close-log-modal" type="button" class="ghost-btn">关闭</button>
+          <div class="modal-actions">
+            <button id="refresh-log-btn" type="button" class="ghost-btn">刷新日志</button>
+            <button id="close-log-modal" type="button" class="ghost-btn">关闭</button>
+          </div>
         </header>
         <div class="log-tabs">
           <button id="stdout-tab" type="button" class="tab-btn active">stdout</button>
@@ -86,6 +92,10 @@
         <p id="log-file" class="mono log-file"></p>
         <pre id="log-content" class="log-content mono"></pre>
       </section>
+    </div>
+    <div id="loading-overlay" class="loading-overlay hidden" role="status" aria-live="polite" aria-busy="true">
+      <div class="loading-spinner" aria-hidden="true"></div>
+      <p>刷新中...</p>
     </div>
     <script>
       window.__SCRIPT_ID__ = "<%- script.id %>";
