@@ -82,6 +82,30 @@ function pickTrustProxy(config) {
   return false;
 }
 
+function normalizeIp(ip) {
+  const value = String(ip || "").trim();
+  if (!value) {
+    return "";
+  }
+  if (value.startsWith("::ffff:")) {
+    return value.slice(7);
+  }
+  return value;
+}
+
+function resolveAllowedIps(config) {
+  if (!Array.isArray(config.allowedIps)) {
+    return null;
+  }
+  const normalized = config.allowedIps
+    .map((item) => normalizeIp(item))
+    .filter(Boolean);
+  if (normalized.length === 0) {
+    return null;
+  }
+  return new Set(normalized);
+}
+
 function shouldUseSecureCookie(config) {
   if (typeof config.secureCookie === "boolean") {
     return config.secureCookie;
@@ -92,12 +116,12 @@ function shouldUseSecureCookie(config) {
 function getClientIp(req) {
   const header = req.headers["x-forwarded-for"];
   if (typeof header === "string" && header.trim()) {
-    return header.split(",")[0].trim();
+    return normalizeIp(header.split(",")[0]);
   }
   if (Array.isArray(header) && header.length > 0) {
-    return String(header[0]).split(",")[0].trim();
+    return normalizeIp(String(header[0]).split(",")[0]);
   }
-  return req.ip || req.socket?.remoteAddress || "unknown";
+  return normalizeIp(req.ip || req.socket?.remoteAddress || "unknown");
 }
 
 function cleanupLoginAttempts(store, now, lockoutMs) {
@@ -174,6 +198,7 @@ async function bootstrap() {
   const loginSecurity = resolveLoginSecurity(config);
   const secureCookie = shouldUseSecureCookie(config);
   const trustProxy = pickTrustProxy(config);
+  const allowedIps = resolveAllowedIps(config);
 
   const app = express();
   const runningJobs = new Map();
@@ -182,6 +207,21 @@ async function bootstrap() {
   app.set("view engine", "ejs");
   app.set("views", path.join(ROOT_DIR, "views"));
   app.set("trust proxy", trustProxy);
+
+  app.use((req, res, next) => {
+    if (!allowedIps) {
+      return next();
+    }
+    const clientIp = getClientIp(req);
+    if (allowedIps.has(clientIp)) {
+      return next();
+    }
+    console.warn(`[ACCESS] Blocked IP ${clientIp}, path: ${req.path}`);
+    if (req.path.startsWith("/api")) {
+      return res.status(403).json({ ok: false, message: "Forbidden: IP not allowed" });
+    }
+    return res.status(403).send("Forbidden: IP not allowed");
+  });
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: false }));

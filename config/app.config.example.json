@@ -5,6 +5,7 @@
   "adminPassword": "123456",
   "secureCookie": false,
   "trustProxy": false,
+  "allowedIps": ["127.0.0.1", "::1"],
   "loginSecurity": {
     "maxAttempts": 5,
     "windowMs": 600000,
