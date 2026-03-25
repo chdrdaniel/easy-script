@@ -239,7 +239,10 @@ async function bootstrap() {
 
     loginAttempts.delete(clientIp);
     req.session.isAuthenticated = true;
-    console.log(`[LOGIN] IP ${clientIp} login success, session: ${JSON.stringify(req.session)}`);
+    req.session.loginIp = clientIp;
+    console.log(
+      `[LOGIN] IP ${clientIp} login success, session flags: isAuthenticated=${req.session.isAuthenticated}, loginIp=${req.session.loginIp}`
+    );
     req.session.save((err) => {
       if (err) {
         console.error(`[LOGIN] Session save error: ${err.message}`);
@@ -260,6 +263,7 @@ async function bootstrap() {
     res.render("dashboard", {
       scripts: config.scripts,
       runningCount: runningJobs.size,
+      loginIp: req.session?.loginIp || getClientIp(req),
     });
   });
 
